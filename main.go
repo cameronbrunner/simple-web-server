@@ -6,30 +6,33 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 )
 
-// Redis section...
-
-func NewClient() *redis.Client {
+// Build a new redis client against a server
+func NewClient(server string) *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     server + ":6379",
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
 	return client
 }
 
+// Structure for holding page data
 type Page struct {
 	Title string
 	Body  []byte
 	Pages []string
 }
 
+// Write a page's state to redis
 func (p *Page) save(client *redis.Client) error {
 	return client.Set(p.Title, p.Body, 0).Err()
 }
 
+// Load a page's state from redis
 func loadPage(client *redis.Client, title string) (*Page, error) {
 	body, err := client.Get(title).Result()
 	if err != nil {
@@ -38,6 +41,7 @@ func loadPage(client *redis.Client, title string) (*Page, error) {
 	return &Page{Title: title, Body: []byte(body)}, nil
 }
 
+// Handle view requests
 func viewHandler(client *redis.Client, w http.ResponseWriter, r *http.Request, title string) {
 	p, err := loadPage(client, title)
 	if err != nil {
@@ -47,6 +51,7 @@ func viewHandler(client *redis.Client, w http.ResponseWriter, r *http.Request, t
 	renderTemplate(w, "view", p)
 }
 
+// Handle edit requests
 func editHandler(client *redis.Client, w http.ResponseWriter, r *http.Request, title string) {
 	p, err := loadPage(client, title)
 	if err != nil {
@@ -55,6 +60,7 @@ func editHandler(client *redis.Client, w http.ResponseWriter, r *http.Request, t
 	renderTemplate(w, "edit", p)
 }
 
+// Handle save requests
 func saveHandler(client *redis.Client, w http.ResponseWriter, r *http.Request, title string) {
 	body := r.FormValue("body")
 	p := &Page{Title: title, Body: []byte(body)}
@@ -66,8 +72,10 @@ func saveHandler(client *redis.Client, w http.ResponseWriter, r *http.Request, t
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
+// Initialize our tempaltes
 var templates = template.Must(template.ParseFiles("edit.html", "view.html", "list.html"))
 
+// Render a template using a given page state
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 	err := templates.ExecuteTemplate(w, tmpl+".html", p)
 	if err != nil {
@@ -75,8 +83,10 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 	}
 }
 
+// Valid paths for our pages
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
+// Make a handler for our page operations
 func makeHandler(client *redis.Client, fn func(*redis.Client, http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		m := validPath.FindStringSubmatch(r.URL.Path)
@@ -88,6 +98,7 @@ func makeHandler(client *redis.Client, fn func(*redis.Client, http.ResponseWrite
 	}
 }
 
+// Handle our index page
 func listHandler(client *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pages, err := client.Keys("*").Result()
@@ -99,8 +110,13 @@ func listHandler(client *redis.Client) http.HandlerFunc {
 	}
 }
 
+// Main entry point for applicaiton
 func main() {
-	client := NewClient()
+	server := "localhost"
+	if len(os.Args) > 1 {
+		server = os.Args[1]
+	}
+	client := NewClient(server)
 	http.HandleFunc("/view/", makeHandler(client, viewHandler))
 	http.HandleFunc("/edit/", makeHandler(client, editHandler))
 	http.HandleFunc("/save/", makeHandler(client, saveHandler))

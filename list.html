@@ -1,5 +1,7 @@
-<h1>{{.Title}}</h1>
-
+<h1>Wiki Articles</h1>
+<body>
 {{ range $key, $value := .Pages }}
 <li><a href="/view/{{printf "%s" $value}}">{{printf "%s" $value}}</a>
 {{ end }}
+<form><input type="text" id="page" /><input type="button" value="Create Page" onClick="location.href='/view/' + document.getElementById('page').value;"/>
+</body>
