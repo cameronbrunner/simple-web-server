@@ -3,5 +3,6 @@
 {{ range $key, $value := .Pages }}
 <li><a href="/view/{{printf "%s" $value}}">{{printf "%s" $value}}</a>
 {{ end }}
-<form><input type="text" id="page" /><input type="button" value="Create Page" onClick="location.href='/view/' + document.getElementById('page').value;"/>
+<form><input type="text" id="page" /><input type="button" value="Create Page" onClick="location.href='/view/' + document.getElementById('page').value;"/></form>
+<p>Built on : {{ .Version }}</p>
 </body>

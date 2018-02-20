@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"runtime"
 )
 
 // Build a new redis client against a server
@@ -22,9 +23,10 @@ func NewClient(server string) *redis.Client {
 
 // Structure for holding page data
 type Page struct {
-	Title string
-	Body  []byte
-	Pages []string
+	Title   string
+	Body    []byte
+	Pages   []string
+	Version string
 }
 
 // Write a page's state to redis
@@ -77,6 +79,7 @@ var templates = template.Must(template.ParseFiles("edit.html", "view.html", "lis
 
 // Render a template using a given page state
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
+	p.Version = runtime.Version()
 	err := templates.ExecuteTemplate(w, tmpl+".html", p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
